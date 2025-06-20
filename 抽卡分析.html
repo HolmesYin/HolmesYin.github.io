@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>抽卡模拟系统</title>
+    <style>
+        body {
+            font-family: 'Microsoft YaHei', sans-serif;
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .hidden {
+            display: none;
+        }
+        .card {
+            display: inline-block;
+            width: 100px;
+            height: 150px;
+            margin: 10px;
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            text-align: center;
+            line-height: 150px;
+            font-size: 24px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .card.rare {
+            background-color: #ffeb3b;
+        }
+        .card.super-rare {
+            background-color: #ff9800;
+        }
+        .card.ultra-rare {
+            background-color: #f44336;
+            color: white;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        input, select {
+            padding: 8px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .tab {
+            overflow: hidden;
+            border: 1px solid #ccc;
+            background-color: #f1f1f1;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab button {
+            background-color: inherit;
+            float: left;
+            border: none;
+            outline: none;
+            cursor: pointer;
+            padding: 14px 16px;
+            transition: 0.3s;
+        }
+        .tab button:hover {
+            background-color: #ddd;
+        }
+        .tab button.active {
+            background-color: #4CAF50;
+            color: white;
+        }
+        .tabcontent {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 5px 5px;
+            background-color: white;
+        }
+        .stats {
+            display: flex;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            padding: 10px;
+            margin: 5px;
+            min-width: 120px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+        .stat-card h4 {
+            margin: 0 0 5px 0;
+            color: #6c757d;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- 登录/注册部分 -->
+        <div id="auth-section">
+            <h2>欢迎来到抽卡模拟系统</h2>
+            <div>
+                <h3>登录</h3>
+                <input type="text" id="login-username" placeholder="用户名">
+                <input type="password" id="login-password" placeholder="密码">
+                <button onclick="login()">登录</button>
+                <!-- 这里有bug - 密码错误时不提示 -->
+                <!-- 正确代码应该是:
+                function login() {
+                    const username = document.getElementById('login-username').value;
+                    const password = document.getElementById('login-password').value;
+                    if (!users[username] || users[username].password !== password) {
+                        alert('用户名或密码错误');
+                        return;
+                    }
+                    currentUser = username;
+                    showUserSection();
+                }
+                -->
+            </div>
+            <div>
+                <h3>注册</h3>
+                <input type="text" id="register-username" placeholder="用户名">
+                <input type="password" id="register-password" placeholder="密码">
+                <button onclick="register()">注册</button>
+            </div>
+        </div>
+
+        <!-- 用户功能部分 -->
+        <div id="user-section" class="hidden">
+            <h2>欢迎, <span id="welcome-username"></span>!</h2>
+            <button onclick="logout()">退出登录</button>
+            
+            <div class="tab">
+                <button class="tablinks active" onclick="openTab(event, 'gacha-section')">抽卡</button>
+                <button class="tablinks" onclick="openTab(event, 'history-section')">抽卡记录</button>
+                <button class="tablinks" onclick="openTab(event, 'stats-section')">抽卡统计</button>
+            </div>
+            
+            <!-- 抽卡部分 -->
+            <div id="gacha-section" class="tabcontent" style="display: block;">
+                <h3>选择抽卡模式</h3>
+                <select id="gacha-mode">
+                    <option value="genshin">原神类</option>
+                    <option value="arknights">明日方舟类</option>
+                    <option value="sanguosha">三国杀类</option>
+                </select>
+                
+                <h3>输入抽卡次数</h3>
+                <input type="number" id="gacha-times" placeholder="抽卡次数" min="1">
+                <!-- 这里有bug - 输入非正整数时不报错 -->
+                <!-- 正确代码应该是:
+                const times = parseInt(document.getElementById('gacha-times').value);
+                if (isNaN(times) || times <= 0) {
+                    alert('请输入正整数');
+                    return;
+                }
+                -->
+                
+                <button onclick="doGacha()">开始抽卡</button>
+                
+                <div id="gacha-results"></div>
+            </div>
+            
+            <!-- 抽卡记录部分 -->
+            <div id="history-section" class="tabcontent">
+                <h3>抽卡记录</h3>
+                <div id="history-tabs">
+                    <button class="history-tab active" onclick="openHistoryTab(event, 'genshin-history')">原神</button>
+                    <button class="history-tab" onclick="openHistoryTab(event, 'arknights-history')">明日方舟</button>
+                    <button class="history-tab" onclick="openHistoryTab(event, 'sanguosha-history')">三国杀</button>
+                </div>
+                
+                <div id="genshin-history" class="history-content" style="display: block;">
+                    <h4>原神抽卡记录</h4>
+                    <ul id="genshin-records"></ul>
+                </div>
+                
+                <div id="arknights-history" class="history-content">
+                    <h4>明日方舟抽卡记录</h4>
+                    <ul id="arknights-records"></ul>
+                </div>
+                
+                <div id="sanguosha-history" class="history-content">
+                    <h4>三国杀抽卡记录</h4>
+                    <ul id="sanguosha-records"></ul>
+                </div>
+            </div>
+            
+            <!-- 抽卡统计部分 -->
+            <div id="stats-section" class="tabcontent">
+                <h3>抽卡统计</h3>
+                <div id="stats-tabs">
+                    <button class="stats-tab active" onclick="openStatsTab(event, 'genshin-stats')">原神</button>
+                    <button class="stats-tab" onclick="openStatsTab(event, 'arknights-stats')">明日方舟</button>
+                    <button class="stats-tab" onclick="openStatsTab(event, 'sanguosha-stats')">三国杀</button>
+                    <button class="stats-tab" onclick="openStatsTab(event, 'all-stats')">全部</button>
+                </div>
+                
+                <div id="genshin-stats" class="stats-content" style="display: block;">
+                    <h4>原神抽卡统计</h4>
+                    <div class="stats" id="genshin-stats-cards"></div>
+                    <table id="genshin-stats-table">
+                        <thead>
+                            <tr>
+                                <th>稀有度</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                <div id="arknights-stats" class="stats-content">
+                    <h4>明日方舟抽卡统计</h4>
+                    <div class="stats" id="arknights-stats-cards"></div>
+                    <table id="arknights-stats-table">
+                        <thead>
+                            <tr>
+                                <th>稀有度</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                <div id="sanguosha-stats" class="stats-content">
+                    <h4>三国杀抽卡统计</h4>
+                    <div class="stats" id="sanguosha-stats-cards"></div>
+                    <table id="sanguosha-stats-table">
+                        <thead>
+                            <tr>
+                                <th>稀有度</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+                
+                <div id="all-stats" class="stats-content">
+                    <h4>全部抽卡统计</h4>
+                    <div class="stats" id="all-stats-cards"></div>
+                    <table id="all-stats-table">
+                        <thead>
+                            <tr>
+                                <th>模式</th>
+                                <th>稀有度</th>
+                                <th>数量</th>
+                                <th>占比</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 用户数据存储
+        let users = JSON.parse(localStorage.getItem('gacha_users')) || {};
+        let currentUser = null;
+        
+        // 抽卡记录 - 这里有bug，所有记录混在一起
+        // 正确应该是按模式分开存储，如:
+        // users[username].gachaRecords = {
+        //     genshin: [],
+        //     arknights: [],
+        //     sanguosha: []
+        // };
+        
+        // 注册功能
+        function register() {
+            const username = document.getElementById('register-username').value;
+            const password = document.getElementById('register-password').value;
+            
+            if (!username || !password) {
+                alert('请输入用户名和密码');
+                return;
+            }
+            
+            if (users[username]) {
+                alert('用户名已存在');
+                return;
+            }
+            
+            users[username] = {
+                password: password,
+                gachaRecords: []
+            };
+            
+            localStorage.setItem('gacha_users', JSON.stringify(users));
+            alert('注册成功！');
+        }
+        
+        // 登录功能
+        function login() {
+            const username = document.getElementById('login-username').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (users[username] && users[username].password === password) {
+                currentUser = username;
+                showUserSection();
+            }
+            // 这里缺少错误提示 - 这是故意留下的bug
+        }
+        
+        // 显示用户功能区域
+        function showUserSection() {
+            document.getElementById('auth-section').classList.add('hidden');
+            document.getElementById('user-section').classList.remove('hidden');
+            document.getElementById('welcome-username').textContent = currentUser;
+            loadHistory();
+            loadStats();
+        }
+        
+        // 退出登录
+        function logout() {
+            currentUser = null;
+            document.getElementById('user-section').classList.add('hidden');
+            document.getElementById('auth-section').classList.remove('hidden');
+            document.getElementById('gacha-results').innerHTML = '';
+        }
+        
+        // 切换标签页
+        function openTab(evt, tabName) {
+            const tabcontents = document.getElementsByClassName('tabcontent');
+            for (let i = 0; i < tabcontents.length; i++) {
+                tabcontents[i].style.display = 'none';
+            }
+            
+            const tablinks = document.getElementsByClassName('tablinks');
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(' active', '');
+            }
+            
+            document.getElementById(tabName).style.display = 'block';
+            evt.currentTarget.className += ' active';
+        }
+        
+        // 切换历史记录标签页
+        function openHistoryTab(evt, tabName) {
+            const tabcontents = document.getElementsByClassName('history-content');
+            for (let i = 0; i < tabcontents.length; i++) {
+                tabcontents[i].style.display = 'none';
+            }
+            
+            const tablinks = document.getElementsByClassName('history-tab');
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(' active', '');
+            }
+            
+            document.getElementById(tabName).style.display = 'block';
+            evt.currentTarget.className += ' active';
+        }
+        
+        // 切换统计标签页
+        function openStatsTab(evt, tabName) {
+            const tabcontents = document.getElementsByClassName('stats-content');
+            for (let i = 0; i < tabcontents.length; i++) {
+                tabcontents[i].style.display = 'none';
+            }
+            
+            const tablinks = document.getElementsByClassName('stats-tab');
+            for (let i = 0; i < tablinks.length; i++) {
+                tablinks[i].className = tablinks[i].className.replace(' active', '');
+            }
+            
+            document.getElementById(tabName).style.display = 'block';
+            evt.currentTarget.className += ' active';
+        }
+        
+        // 抽卡功能
+        function doGacha() {
+            if (!currentUser) return;
+            
+            const mode = document.getElementById('gacha-mode').value;
+            const times = document.getElementById('gacha-times').value;
+            
+            // 这里缺少对times的验证 - 这是故意留下的bug
+            
+            const results = [];
+            const gachaResults = document.getElementById('gacha-results');
+            gachaResults.innerHTML = '';
+            
+            for (let i = 0; i < times; i++) {
+                const card = generateCard(mode);
+                results.push(card);
+                
+                const cardElement = document.createElement('div');
+                cardElement.className = `card ${card.rarity}`;
+                cardElement.textContent = card.name;
+                gachaResults.appendChild(cardElement);
+            }
+            
+            // 记录抽卡结果
+            const record = {
+                mode: mode,
+                time: new Date().toLocaleString(),
+                results: results
+            };
+            
+            users[currentUser].gachaRecords.push(record);
+            localStorage.setItem('gacha_users', JSON.stringify(users));
+            
+            // 更新历史记录和统计显示
+            loadHistory();
+            loadStats();
+        }
+        
+        // 生成卡片
+        function generateCard(mode) {
+            let cardPool = [];
+            let namePrefix = '';
+            
+            switch (mode) {
+                case 'genshin':
+                    cardPool = [
+                        {name: '三星武器', rarity: 'normal', chance: 0.7},
+                        {name: '四星角色', rarity: 'rare', chance: 0.25},
+                        {name: '五星角色', rarity: 'super-rare', chance: 0.05}
+                    ];
+                    namePrefix = '原神-';
+                    break;
+                case 'arknights':
+                    cardPool = [
+                        {name: '三星干员', rarity: 'normal', chance: 0.6},
+                        {name: '四星干员', rarity: 'rare', chance: 0.3},
+                        {name: '五星干员', rarity: 'super-rare', chance: 0.08},
+                        {name: '六星干员', rarity: 'ultra-rare', chance: 0.02}
+                    ];
+                    namePrefix = '明日方舟-';
+                    break;
+                case 'sanguosha':
+                    cardPool = [
+                        {name: '普通卡', rarity: 'normal', chance: 0.65},
+                        {name: '稀有卡', rarity: 'rare', chance: 0.3},
+                        {name: '传说卡', rarity: 'ultra-rare', chance: 0.05}
+                    ];
+                    namePrefix = '三国杀-';
+                    break;
+            }
+            
+            const rand = Math.random();
+            let cumulativeChance = 0;
+            
+            for (const card of cardPool) {
+                cumulativeChance += card.chance;
+                if (rand <= cumulativeChance) {
+                    return {
+                        name: namePrefix + card.name,
+                        rarity: card.rarity
+                    };
+                }
+            }
+            
+            // 默认返回最低稀有度
+            return {
+                name: namePrefix + cardPool[0].name,
+                rarity: cardPool[0].rarity
+            };
+        }
+        
+        // 加载历史记录
+        function loadHistory() {
+            if (!currentUser) return;
+            
+            const user = users[currentUser];
+            const genshinRecords = document.getElementById('genshin-records');
+            const arknightsRecords = document.getElementById('arknights-records');
+            const sanguoshaRecords = document.getElementById('sanguosha-records');
+            
+            genshinRecords.innerHTML = '';
+            arknightsRecords.innerHTML = '';
+            sanguoshaRecords.innerHTML = '';
+            
+            // 这里有bug - 所有记录混在一起显示
+            // 正确应该是按模式分开显示
+            
+            user.gachaRecords.forEach(record => {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${record.time}</strong>: ${record.results.length}次抽卡 - `;
+                
+                const rarityCount = {};
+                record.results.forEach(result => {
+                    rarityCount[result.rarity] = (rarityCount[result.rarity] || 0) + 1;
+                });
+                
+                for (const rarity in rarityCount) {
+                    li.innerHTML += `${getRarityName(rarity)}: ${rarityCount[rarity]} `;
+                }
+                
+                // 根据模式添加到不同的列表中
+                if (record.mode === 'genshin') {
+                    genshinRecords.appendChild(li.cloneNode(true));
+                } else if (record.mode === 'arknights') {
+                    arknightsRecords.appendChild(li.cloneNode(true));
+                } else if (record.mode === 'sanguosha') {
+                    sanguoshaRecords.appendChild(li.cloneNode(true));
+                }
+            });
+        }
+        
+        // 加载统计信息
+        function loadStats() {
+            if (!currentUser) return;
+            
+            const user = users[currentUser];
+            
+            // 初始化统计数据
+            const stats = {
+                genshin: {total: 0, normal: 0, rare: 0, 'super-rare': 0, 'ultra-rare': 0},
+                arknights: {total: 0, normal: 0, rare: 0, 'super-rare': 0, 'ultra-rare': 0},
+                sanguosha: {total: 0, normal: 0, rare: 0, 'ultra-rare': 0}
+            };
+            
+            // 统计各模式抽卡数据
+            user.gachaRecords.forEach(record => {
+                record.results.forEach(result => {
+                    stats[record.mode].total++;
+                    stats[record.mode][result.rarity]++;
+                });
+            });
+            
+            // 更新各模式统计显示
+            updateModeStats('genshin', stats.genshin);
+            updateModeStats('arknights', stats.arknights);
+            updateModeStats('sanguosha', stats.sanguosha);
+            
+            // 更新全部统计显示
+            updateAllStats(stats);
+        }
+        
+        // 更新单个模式的统计显示
+        function updateModeStats(mode, data) {
+            const statsContainer = document.getElementById(`${mode}-stats-cards`);
+            const tableBody = document.querySelector(`#${mode}-stats-table tbody`);
+            
+            statsContainer.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            // 添加统计卡片
+            const totalCard = createStatCard('总抽卡数', data.total);
+            statsContainer.appendChild(totalCard);
+            
+            for (const rarity in data) {
+                if (rarity !== 'total') {
+                    const count = data[rarity];
+                    if (count > 0) {
+                        const card = createStatCard(getRarityName(rarity), count);
+                        statsContainer.appendChild(card);
+                        
+                        // 添加表格行
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${getRarityName(rarity)}</td>
+                            <td>${count}</td>
+                            <td>${(count / data.total * 100).toFixed(2)}%</td>
+                        `;
+                        tableBody.appendChild(row);
+                    }
+                }
+            }
+        }
+        
+        // 更新全部统计显示
+        function updateAllStats(stats) {
+            const statsContainer = document.getElementById('all-stats-cards');
+            const tableBody = document.querySelector('#all-stats-table tbody');
+            
+            statsContainer.innerHTML = '';
+            tableBody.innerHTML = '';
+            
+            // 计算总抽卡数
+            let total = 0;
+            for (const mode in stats) {
+                total += stats[mode].total;
+            }
+            
+            // 添加总抽卡数卡片
+            const totalCard = createStatCard('总抽卡数', total);
+            statsContainer.appendChild(totalCard);
+            
+            // 添加各模式统计卡片
+            for (const mode in stats) {
+                if (stats[mode].total > 0) {
+                    const modeCard = createStatCard(getModeName(mode), stats[mode].total);
+                    statsContainer.appendChild(modeCard);
+                    
+                    // 添加各稀有度统计行
+                    for (const rarity in stats[mode]) {
+                        if (rarity !== 'total' && stats[mode][rarity] > 0) {
+                            const row = document.createElement('tr');
+                            row.innerHTML = `
+                                <td>${getModeName(mode)}</td>
+                                <td>${getRarityName(rarity)}</td>
+                                <td>${stats[mode][rarity]}</td>
+                                <td>${(stats[mode][rarity] / stats[mode].total * 100).toFixed(2)}%</td>
+                            `;
+                            tableBody.appendChild(row);
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 创建统计卡片
+        function createStatCard(title, value) {
+            const card = document.createElement('div');
+            card.className = 'stat-card';
+            card.innerHTML = `
+                <h4>${title}</h4>
+                <p>${value}</p>
+            `;
+            return card;
+        }
+        
+        // 获取模式名称
+        function getModeName(mode) {
+            switch (mode) {
+                case 'genshin': return '原神';
+                case 'arknights': return '明日方舟';
+                case 'sanguosha': return '三国杀';
+                default: return mode;
+            }
+        }
+        
+        // 获取稀有度名称
+        function getRarityName(rarity) {
+            switch (rarity) {
+                case 'normal': return '普通';
+                case 'rare': return '稀有';
+                case 'super-rare': return '超稀有';
+                case 'ultra-rare': return '极稀有';
+                default: return rarity;
+            }
+        }
+    </script>
+</body>
+</html>
